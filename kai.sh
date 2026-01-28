@@ -4,6 +4,7 @@ echo "────────────────────────�
 echo "KAI: Kota's Arch Installer"
 echo "───────────────────────────────────────────────────────"
 echo "Please partition your disks before proceeding."
+echo "WARNING: NON-EFI, NON-GRUB NOT CURRENTLY SUPPORTED!"
 echo "───────────────────────────────────────────────────────"
 # Y/n to open cfdisk
 read -p "Do you want to open cfdisk? (Y/n): " open_cfdisk
@@ -20,10 +21,14 @@ echo "Disk2: $disk2"
 echo "Username: $username"
 echo "Hostname: $hostname"
 echo "Timezone: $timezone"
-echo "Locale": "$locale"
+echo "Locale: $locale"
 echo "Swap Size: $swap_size"
 echo "Root Password: $root_password"
 echo "User Password: $user_password"
+echo "Nvidia Graphics: $nvidia"
+echo "Intel CPU: $intel_cpu"
+echo "Desktop (Not Server): $desktop"
+echo "Display Manager: $display_manager"
 echo "Install GRUB: $install_grub"
 echo "Install EFI: $install_efi"
 echo "───────────────────────────────────────────────────────"
@@ -78,18 +83,41 @@ swapon /swapfile
 echo "/swapfile none swap defaults 0 0" >> /etc/fstab
 ln -sf /usr/share/zoneinfo/"$timezone" /etc/localtime
 hwclock --systohc
-echo "$locale UTF-8" > /etc/locale.gen
+sed -i "s/^#\?$locale UTF-8/$locale UTF-8/" /etc/locale.gen
 locale-gen
 echo "LANG=$locale" > /etc/locale.conf
 echo $hostname > /etc/hostname
 echo "127.0.0.1 $hostname.localdomain $hostname" >> /etc/hosts
 echo "root:$root_password" | chpasswd
-pacman -S --noconfirm grub efibootmgr networkmanager wpa_supplicant dialog os-prober base-devel linux-headers reflector git
+pacman -S --noconfirm grub efibootmgr networkmanager wpa_supplicant dialog os-prober base-devel linux-headers reflector git xdg-user-dirs polkit
+systemctl enable --now systemd-timesyncd.service
+timedatectl set-ntp true
+pacman -S --noconfirm firewalld fail2ban
+systemctl enable firewalld
+if [[ "$desktop" == "true" ]]; then
+  pacman -S --noconfirm noto-fonts noto-fonts-cjk noto-fonts-emoji ttf-jetbrains-mono ttf-dejavu ttf-liberation
+  fc-cache -fv
+  pacman -S --noconfirm mesa lib32-mesa
+  pacman -S --noconfirm pipewire pipewire-pulse pipewire-jack pipewire-audio pipewire-alsa wireplumber
+  systemctl enable wireplumber
+  pacman -S --noconfirm $display_manager
+  if [[ "$display_manager" == "sddm" ]]; then
+    systemctl enable sddm
+  fi
+fi
+if [[ "$intel_cpu" == "true" ]]; then
+  pacman -S --noconfirm linux-firmware-intel intel-ucode
+fi
+if [[ "$nvidia" == "true" ]]; then
+  grep -q "^\[multilib\]" /etc/pacman.conf || {
+    echo "[multilib]"
+    echo "Include = /etc/pacman.d/mirrorlist"
+  } >> /etc/pacman.conf
+  pacman -S --noconfirm linux-firmware-nvidia nvidia-utils nvidia-open lib32-nvidia-utils
+fi
 if [[ "$install_grub" == "true" ]]; then
   if [[ "$install_efi" == "true" ]]; then
     grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
-  else
-    grub-install /dev/"$disk2"
   fi
   grub-mkconfig -o /boot/grub/grub.cfg
 fi
