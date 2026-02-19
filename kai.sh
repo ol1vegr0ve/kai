@@ -136,7 +136,7 @@ EOF
     reboot
     break ;;
     2) echo "configuring...";
-    config_vars=("disk1" "disk2" "username" "hostname" "timezone" "locale" "swap_size" "root_password" "user_password" "install_grub" "install_efi")
+    config_vars=("disk1" "disk2" "username" "hostname" "timezone" "locale" "swap_size" "root_password" "user_password" "nvidia" "intel_cpu" "desktop" "display_manager" "install_grub" "install_efi")
     select var in "${config_vars[@]}" "back"; do
       if [[ "$var" == "back" ]]; then
         break
